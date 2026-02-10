@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model categories {
+  category_id   Int        @id @default(autoincrement()) @db.SmallInt
+  category_name String     @db.VarChar(255)
+  products      products[]
+}
+
+model products {
+  product_id           Int                    @id @default(autoincrement()) @db.SmallInt
+  product_name         String                 @db.VarChar(255)
+  category_id          Int
+  unit                 String                 @db.VarChar(50)
+  company              String                 @db.VarChar(100)
+  storage_temperature  String?
+  categories           categories             @relation(fields: [category_id], references: [category_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_category")
+  products_for_invoice products_for_invoice[]
+  products_to_order    products_to_order?
+}
+
+model products_to_order {
+  products_to_order_id Int      @id @default(autoincrement()) @db.SmallInt
+  product_id           Int      @unique(map: "unique_product_in_order")
+  quantity             Int
+  order_date           DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  products             products @relation(fields: [product_id], references: [product_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_product")
+}
+
+model employee {
+  employee_id          Int                    @id @default(autoincrement()) @db.SmallInt
+  first_name           String                 @db.VarChar(100)
+  last_name            String                 @db.VarChar(100)
+  middle_name          String                 @db.VarChar(100)
+  phone_number         String                 @db.VarChar(20)
+  email                String                 @db.VarChar(100)
+  password             String                 @db.VarChar(100)
+  hire_date            DateTime               @db.Date
+  dismissal_date       DateTime?              @db.Date
+  position_id          Int
+  db_role              String?
+  position             position               @relation(fields: [position_id], references: [position_id], onDelete: SetNull, onUpdate: NoAction, map: "fk_position")
+  invoice              invoice[]
+  products_for_receipt products_for_receipt[]
+  receipt              receipt[]
+}
+
+model position {
+  position_id   Int        @id @default(autoincrement()) @db.SmallInt
+  position_name String     @db.VarChar(100)
+  employee      employee[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model invoice {
+  invoice_id           Int                    @id @default(autoincrement()) @db.SmallInt
+  employee_id          Int
+  provider_id          Int?
+  created_at           DateTime               @db.Date
+  completed_at         DateTime?              @db.Date
+  status               String                 @db.VarChar(50)
+  invoice_type         invoice_type_enum
+  employee             employee               @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_employee")
+  provider             provider?              @relation(fields: [provider_id], references: [provider_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_provider")
+  products_for_invoice products_for_invoice[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products_for_invoice {
+  products_for_invoice_id Int       @id @default(autoincrement()) @db.SmallInt
+  invoice_id              Int
+  product_id              Int
+  quantity                Int
+  product_price           Decimal   @db.Decimal(10, 2)
+  date_of_manufacture     DateTime? @db.Date
+  use_by_date             DateTime? @db.Date
+  invoice                 invoice   @relation(fields: [invoice_id], references: [invoice_id], onDelete: Cascade, onUpdate: NoAction)
+  products                products  @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products_for_receipt {
+  products_for_receipt_id Int      @id @default(autoincrement()) @db.SmallInt
+  receipt_id              Int
+  employee_id             Int
+  product_id              Int
+  quantity                Decimal  @db.Decimal(10, 2)
+  price                   Decimal  @db.Decimal(10, 2)
+  employee                employee @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  receipt                 receipt  @relation(fields: [receipt_id], references: [receipt_id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model provider {
+  provider_id  Int       @id @default(autoincrement()) @db.SmallInt
+  first_name   String    @db.VarChar(100)
+  last_name    String    @db.VarChar(100)
+  company_name String    @db.VarChar(150)
+  phone_number String    @db.VarChar(20)
+  email        String    @db.VarChar(100)
+  invoice      invoice[]
+}
+
+model receipt {
+  receipt_id           Int                    @id @default(autoincrement()) @db.SmallInt
+  receipt_create_date  DateTime?              @default(now()) @db.Timestamp(6)
+  receipt_type         String                 @db.VarChar(50)
+  employee_id          Int
+  products_for_receipt products_for_receipt[]
+  employee             employee               @relation(fields: [employee_id], references: [employee_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_employee")
+}
+
+enum invoice_type_enum {
+  Отримання @map("Отримання")
+  Повернення @map("Повернення")
+  Списання @map("Списання")
+}
